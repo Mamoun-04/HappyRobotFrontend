@@ -10,14 +10,14 @@ import { useState, useMemo } from "react";
 
 interface LogData {
   id: string;
-  mc_number: string;
-  load_id: string;
-  final_rate: number;
+  mcNumber: string;
+  loadId: string;
+  finalRate: number | null;
   outcome: "accepted" | "declined" | "no_agreement";
   sentiment: "positive" | "neutral" | "negative";
   rounds: number;
   notes: string;
-  created_at: string;
+  createdAt: string;
 }
 
 const OUTCOME_COLORS = {
@@ -38,7 +38,7 @@ export default function Dashboard() {
   const { data: logs = [], isLoading, isError, error, refetch } = useQuery<LogData[]>({
     queryKey: ["/api/logs"],
     queryFn: async () => {
-      const response = await fetch("https://hrfde-2.fly.dev/api/logs");
+      const response = await fetch("/api/logs");
       if (!response.ok) {
         throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
       }
@@ -51,8 +51,8 @@ export default function Dashboard() {
   const filteredLogs = useMemo(() => {
     if (!searchTerm) return logs;
     return logs.filter(log => 
-      log.mc_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.load_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.mcNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.loadId.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.outcome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.sentiment.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -63,7 +63,8 @@ export default function Dashboard() {
     
     const accepted = logs.filter(log => log.outcome === "accepted").length;
     const declined = logs.filter(log => log.outcome === "declined").length;
-    const avgFinalRate = logs.reduce((sum, log) => sum + log.final_rate, 0) / logs.length;
+    const validRates = logs.filter(log => log.finalRate !== null).map(log => log.finalRate!);
+    const avgFinalRate = validRates.length > 0 ? validRates.reduce((sum, rate) => sum + rate, 0) / validRates.length : 0;
     const avgRounds = logs.reduce((sum, log) => sum + log.rounds, 0) / logs.length;
 
     return { accepted, declined, avgFinalRate, avgRounds };
@@ -97,12 +98,12 @@ export default function Dashboard() {
     }));
 
     // Rate trend over time (group by day)
-    const dailyRates = logs.reduce((acc, log) => {
-      const date = new Date(log.created_at).toISOString().split('T')[0];
+    const dailyRates = logs.filter(log => log.finalRate !== null).reduce((acc, log) => {
+      const date = new Date(log.createdAt).toISOString().split('T')[0];
       if (!acc[date]) {
         acc[date] = { rates: [], date };
       }
-      acc[date].rates.push(log.final_rate);
+      acc[date].rates.push(log.finalRate!);
       return acc;
     }, {} as Record<string, { rates: number[], date: string }>);
 
@@ -144,13 +145,21 @@ export default function Dashboard() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
   if (isLoading) {
@@ -494,13 +503,13 @@ export default function Dashboard() {
                   filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50" data-testid={`row-log-${log.id}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900" data-testid={`text-mc-${log.id}`}>
-                        {log.mc_number}
+                        {log.mcNumber}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500" data-testid={`text-load-${log.id}`}>
-                        {log.load_id}
+                        {log.loadId}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-testid={`text-rate-${log.id}`}>
-                        {formatCurrency(log.final_rate)}
+                        {log.finalRate ? formatCurrency(log.finalRate) : "N/A"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge 
@@ -522,7 +531,7 @@ export default function Dashboard() {
                         {log.rounds}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500" data-testid={`text-date-${log.id}`}>
-                        {formatDate(log.created_at)}
+                        {formatDate(log.createdAt)}
                       </td>
                     </tr>
                   ))
