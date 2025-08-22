@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, CheckCircle, XCircle, DollarSign, TrendingUp, Search, Download } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { useState, useMemo } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface LogData {
   id: string;
@@ -160,6 +162,93 @@ export default function Dashboard() {
     } catch (error) {
       return 'Invalid Date';
     }
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    
+    // Header
+    doc.setFontSize(20);
+    doc.setTextColor(40, 44, 52);
+    doc.text('Load Negotiation Analytics Report', pageWidth / 2, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.setTextColor(107, 114, 128);
+    doc.text(`Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth / 2, 30, { align: 'center' });
+    
+    // Summary Statistics
+    doc.setFontSize(16);
+    doc.setTextColor(40, 44, 52);
+    doc.text('Summary Statistics', 20, 50);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(75, 85, 99);
+    const summaryData = [
+      ['Total Logs', logs.length.toLocaleString()],
+      ['Accepted', stats.accepted.toLocaleString()],
+      ['Declined', stats.declined.toLocaleString()],
+      ['Average Final Rate', formatCurrency(stats.avgFinalRate)],
+      ['Average Rounds', stats.avgRounds.toFixed(1)]
+    ];
+    
+    autoTable(doc, {
+      startY: 60,
+      head: [['Metric', 'Value']],
+      body: summaryData,
+      theme: 'grid',
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { fontStyle: 'bold' } }
+    });
+    
+    // Detailed Log Data
+    const finalY = (doc as any).lastAutoTable.finalY + 20;
+    doc.setFontSize(16);
+    doc.setTextColor(40, 44, 52);
+    doc.text('Detailed Log Data', 20, finalY);
+    
+    const tableData = filteredLogs.map(log => [
+      log.mcNumber,
+      log.loadId,
+      log.finalRate ? formatCurrency(log.finalRate) : 'N/A',
+      log.outcome.replace('_', ' '),
+      log.sentiment,
+      log.rounds.toString(),
+      formatDate(log.createdAt)
+    ]);
+    
+    autoTable(doc, {
+      startY: finalY + 10,
+      head: [['MC Number', 'Load ID', 'Final Rate', 'Outcome', 'Sentiment', 'Rounds', 'Created At']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      styles: { fontSize: 8, cellPadding: 3 },
+      columnStyles: {
+        0: { fontStyle: 'bold' },
+        2: { halign: 'right' },
+        5: { halign: 'center' }
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+    
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(107, 114, 128);
+      doc.text(
+        `Page ${i} of ${pageCount}`,
+        pageWidth / 2,
+        doc.internal.pageSize.height - 10,
+        { align: 'center' }
+      );
+    }
+    
+    // Save the PDF
+    doc.save('Load_Negotiation_Analytics_Report.pdf');
   };
 
   if (isLoading) {
@@ -469,9 +558,13 @@ export default function Dashboard() {
                   />
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 </div>
-                <Button className="bg-primary hover:bg-primary/90" data-testid="button-export">
+                <Button 
+                  onClick={exportToPDF}
+                  className="bg-primary hover:bg-primary/90" 
+                  data-testid="button-export"
+                >
                   <Download className="w-4 h-4 mr-2" />
-                  Export
+                  Export PDF
                 </Button>
               </div>
             </div>
