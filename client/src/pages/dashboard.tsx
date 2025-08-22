@@ -10,14 +10,14 @@ import { useState, useMemo } from "react";
 
 interface LogData {
   id: string;
-  mcNumber: string;
-  loadId: string;
-  finalRate: number;
+  mc_number: string;
+  load_id: string;
+  final_rate: number;
   outcome: "accepted" | "declined" | "no_agreement";
   sentiment: "positive" | "neutral" | "negative";
   rounds: number;
   notes: string;
-  createdAt: string;
+  created_at: string;
 }
 
 const OUTCOME_COLORS = {
@@ -36,9 +36,9 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: logs = [], isLoading, isError, error, refetch } = useQuery<LogData[]>({
-    queryKey: ["/api/logs"],
+    queryKey: ["/api/loads"],
     queryFn: async () => {
-      const response = await fetch("https://hrfde-2.fly.dev/api/logs");
+      const response = await fetch("https://hrfde-2.fly.dev/api/loads");
       if (!response.ok) {
         throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
       }
@@ -51,8 +51,8 @@ export default function Dashboard() {
   const filteredLogs = useMemo(() => {
     if (!searchTerm) return logs;
     return logs.filter(log => 
-      log.mcNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.loadId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.mc_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.load_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.outcome.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.sentiment.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -63,7 +63,7 @@ export default function Dashboard() {
     
     const accepted = logs.filter(log => log.outcome === "accepted").length;
     const declined = logs.filter(log => log.outcome === "declined").length;
-    const avgFinalRate = logs.reduce((sum, log) => sum + log.finalRate, 0) / logs.length;
+    const avgFinalRate = logs.reduce((sum, log) => sum + log.final_rate, 0) / logs.length;
     const avgRounds = logs.reduce((sum, log) => sum + log.rounds, 0) / logs.length;
 
     return { accepted, declined, avgFinalRate, avgRounds };
@@ -98,11 +98,11 @@ export default function Dashboard() {
 
     // Rate trend over time (group by day)
     const dailyRates = logs.reduce((acc, log) => {
-      const date = new Date(log.createdAt).toISOString().split('T')[0];
+      const date = new Date(log.created_at).toISOString().split('T')[0];
       if (!acc[date]) {
         acc[date] = { rates: [], date };
       }
-      acc[date].rates.push(log.finalRate);
+      acc[date].rates.push(log.final_rate);
       return acc;
     }, {} as Record<string, { rates: number[], date: string }>);
 
@@ -494,13 +494,13 @@ export default function Dashboard() {
                   filteredLogs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50" data-testid={`row-log-${log.id}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900" data-testid={`text-mc-${log.id}`}>
-                        {log.mcNumber}
+                        {log.mc_number}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500" data-testid={`text-load-${log.id}`}>
-                        {log.loadId}
+                        {log.load_id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900" data-testid={`text-rate-${log.id}`}>
-                        {formatCurrency(log.finalRate)}
+                        {formatCurrency(log.final_rate)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge 
@@ -522,7 +522,7 @@ export default function Dashboard() {
                         {log.rounds}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500" data-testid={`text-date-${log.id}`}>
-                        {formatDate(log.createdAt)}
+                        {formatDate(log.created_at)}
                       </td>
                     </tr>
                   ))
