@@ -36,9 +36,9 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: logs = [], isLoading, isError, error, refetch } = useQuery<LogData[]>({
-    queryKey: ["/api/loads"],
+    queryKey: ["/api/logs"],
     queryFn: async () => {
-      const response = await fetch("https://hrfde-2.fly.dev/api/loads");
+      const response = await fetch("https://hrfde-2.fly.dev/api/logs");
       if (!response.ok) {
         throw new Error(`Failed to fetch logs: ${response.status} ${response.statusText}`);
       }
